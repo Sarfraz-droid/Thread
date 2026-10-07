@@ -2876,3 +2876,14 @@ code {
     padding: 20px;
   }
 }
+
+.auth-alternative {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  text-align: center;
+}
+.auth-alternative a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}

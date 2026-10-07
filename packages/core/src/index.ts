@@ -241,6 +241,7 @@ export function safeFilename(name: string) {
 export type WorkspaceState = {
   profile: Profile;
   settings: Settings;
+  isOwner: boolean;
   memories: Memory[];
   documents: Document[];
   conversations: Conversation[];

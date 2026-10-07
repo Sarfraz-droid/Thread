@@ -18,7 +18,8 @@
     "db:start": "bunx supabase start",
     "db:reset": "bunx supabase db reset",
     "db:test": "bun scripts/test-db.ts",
-    "db:types": "bunx supabase gen types typescript --local > packages/core/src/database.types.ts"
+    "db:types": "bunx supabase gen types typescript --local > packages/core/src/database.types.ts",
+    "test:auth": "bun test tests/auth"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

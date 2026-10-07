@@ -9,17 +9,18 @@ import {
 } from "@mailer/ui/components/alert";
 import { Input } from "@mailer/ui/components/input";
 import { Field, FieldGroup, FieldLabel } from "@mailer/ui/components/field";
-import { isConfigured, requireOwner } from "@/lib/server/supabase";
+import { isConfigured, requireUser } from "@/lib/server/supabase";
 export const dynamic = "force-dynamic";
 const errors: Record<string, string> = {
+  confirmation:
+    "The confirmation link is missing, expired, or was opened in a different browser. Try signing in if you already confirmed your email, or sign up again to request a new link.",
   configuration:
     "Supabase is not configured yet. Add the environment variables to enable sign-in.",
   provider: "Sign-in is temporarily unavailable. Please try again.",
   credentials:
     "Email or password is incorrect. Check your details and try again.",
   rate_limit: "Too many sign-in attempts. Please wait a moment and try again.",
-  not_owner:
-    "This workspace belongs to another account. Sign in with the configured, confirmed owner account.",
+  unconfirmed: "Confirm your email address, then sign in.",
   origin: "Sign in from your configured application URL.",
 };
 export default async function Login({
@@ -32,7 +33,7 @@ export default async function Login({
   let authenticated = false;
   if (configured) {
     try {
-      await requireOwner();
+      await requireUser();
       authenticated = true;
     } catch {
       /* Login remains available without a valid owner session. */
@@ -108,14 +109,16 @@ export default async function Login({
               APP_URL
             </code>
             <p>
-              Enable email authentication in Supabase and create a confirmed
-              user with a password matching your configured owner email.
+              Enable email authentication in Supabase and create a confirmed user with a password.
             </p>
           </details>
         )}
+        <p className="auth-alternative">
+          New here? <a href="/signup">Create an account</a>
+        </p>
         <p className="login-private">
           <LockKeyhole aria-hidden="true" />
-          Only the configured owner account can access this workspace.
+          Your workspace is private to your account.
         </p>
         <a className={buttonVariants({ variant: "link" })} href="/preview">
           Preview the dashboard

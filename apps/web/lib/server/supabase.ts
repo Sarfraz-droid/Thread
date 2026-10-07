@@ -1,5 +1,5 @@
 import "server-only";
-import { isOwnerAccount } from "@/lib/owner";
+import { isConfirmedAccount, isOwnerAccount } from "@/lib/owner";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
@@ -41,7 +41,7 @@ export function adminClient() {
     { auth: { persistSession: false, autoRefreshToken: false } },
   );
 }
-export async function requireOwner() {
+export async function requireUser() {
   if (!isConfigured())
     throw new HttpError(
       503,
@@ -54,12 +54,13 @@ export async function requireOwner() {
   } = await client.auth.getUser();
   if (error || !user)
     throw new HttpError(401, "Sign in to your workspace first.");
-  if (!isOwnerAccount(user, process.env.OWNER_EMAIL))
-    throw new HttpError(
-      403,
-      "This workspace is private. Sign in with the configured owner account.",
-    );
-  return { user, db: adminClient() };
+  if (!isConfirmedAccount(user))
+    throw new HttpError(403, "Confirm your email address to continue.");
+  return {
+    user,
+    db: adminClient(),
+    isOwner: isOwnerAccount(user, process.env.OWNER_EMAIL),
+  };
 }
 export function assertSameOrigin(request: Request) {
   if (["GET", "HEAD"].includes(request.method)) return;

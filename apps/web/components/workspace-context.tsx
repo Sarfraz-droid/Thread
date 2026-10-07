@@ -12,6 +12,7 @@ import { toast } from "sonner";
 export const emptyState: WorkspaceState = {
   profile: emptyProfile,
   settings: { model: "zai-org/GLM-5.3", signature: "" },
+  isOwner: false,
   memories: [],
   documents: [],
   conversations: [],

@@ -1,6 +1,6 @@
 import { LandingPage } from "@/components/landing-page";
 import { Workspace } from "@/components/workspace";
-import { isConfigured, requireOwner } from "@/lib/server/supabase";
+import { isConfigured, requireUser } from "@/lib/server/supabase";
 export const dynamic = "force-dynamic";
 export default async function Page({
   searchParams,
@@ -11,7 +11,7 @@ export default async function Page({
   let authenticated = false;
   if (isConfigured()) {
     try {
-      await requireOwner();
+      await requireUser();
       authenticated = true;
     } catch {
       /* Public shell never loads account data. */

@@ -150,7 +150,7 @@ export function LandingPage() {
             <br />
             One considered next step.
           </h2>
-          <a href="/login" className={buttonVariants({ size: "lg" })}>
+          <a href="/signup" className={buttonVariants({ size: "lg" })}>
             Get started
             <ArrowRight />
           </a>

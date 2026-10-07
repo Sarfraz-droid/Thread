@@ -244,139 +244,150 @@ export function SettingsView({ providers }: { providers: ProviderStatus }) {
       <section className="settings-section">
         <div className="section-heading">
           <h2>Agent & writing preferences</h2>
-          <Badge variant="secondary">
-            {state.settings.provider === "vercel"
-              ? "Vercel AI Gateway"
-              : state.settings.provider === "together"
-                ? "Together AI"
-                : state.settings.provider === "groq"
-                  ? "Groq"
-                  : state.settings.provider === "openrouter"
-                    ? "OpenRouter"
-                    : "AkashML"}
-          </Badge>
+          {state.isOwner && (
+            <Badge variant="secondary">
+              {state.settings.provider === "vercel"
+                ? "Vercel AI Gateway"
+                : state.settings.provider === "together"
+                  ? "Together AI"
+                  : state.settings.provider === "groq"
+                    ? "Groq"
+                    : state.settings.provider === "openrouter"
+                      ? "OpenRouter"
+                      : "AkashML"}
+            </Badge>
+          )}
         </div>
         <form
           onSubmit={(e) => {
             e.preventDefault();
             void run("Saving settings", async () => {
-              await request("settings", "PUT", { provider, model, signature });
+              await request("settings", "PUT", {
+                ...(state.isOwner ? { provider, model } : {}),
+                signature,
+              });
               await reload();
             });
           }}
         >
           <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="ai-provider">AI provider</FieldLabel>
-              <Select
-                value={provider}
-                onValueChange={(value) => {
-                  if (
-                    value !== "akash" &&
-                    value !== "vercel" &&
-                    value !== "together" &&
-                    value !== "groq" &&
-                    value !== "openrouter"
-                  )
-                    return;
-                  setProvider(value);
-                  setModel(
-                    value === state.settings.provider
-                      ? state.settings.model
-                      : value === "akash"
-                        ? "zai-org/GLM-5.3"
-                        : value === "together"
-                          ? "MiniMaxAI/MiniMax-M3"
-                          : value === "groq"
-                            ? "openai/gpt-oss-20b"
-                            : value === "openrouter"
-                              ? "openrouter/auto-beta"
-                              : "zai/glm-5.3",
-                  );
-                  setModels([]);
-                }}
-              >
-                <SelectTrigger id="ai-provider">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value="akash">AkashML</SelectItem>
-                    <SelectItem value="vercel">Vercel AI Gateway</SelectItem>
-                    <SelectItem value="together">Together AI</SelectItem>
-                    <SelectItem value="groq">Groq</SelectItem>
-                    <SelectItem value="openrouter">OpenRouter</SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </Field>
-            <TextField
-              id="model"
-              label="Model ID"
-              value={model}
-              onChange={setModel}
-              hint={
-                provider === "vercel"
-                  ? "Choose a Vercel AI Gateway model ID. Tool use requires tool-calling support."
-                  : provider === "together"
-                    ? "Choose a Together AI chat model. Tool use requires function-calling support."
-                    : provider === "groq"
-                      ? "Choose a Groq chat model supporting tool use."
-                      : provider === "openrouter"
-                        ? "Choose an OpenRouter model ID. openrouter/auto-beta picks a model automatically; tool use requires tool-calling support."
-                        : "Choose an AkashML text model supporting chat. Tool use also requires tool-calling support."
-              }
-            />
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={
-                  Boolean(busy) ||
-                  !(provider === "vercel"
-                    ? providers.gateway
-                    : provider === "together"
-                      ? providers.together
-                      : provider === "groq"
-                        ? providers.groq
-                        : provider === "openrouter"
-                          ? providers.openrouter
-                          : providers.akash)
-                }
-                onClick={() =>
-                  void run("Loading available models", async () => {
-                    const result = await request<{ models: { id: string }[] }>(
-                      `models?provider=${provider}`,
-                    );
-                    setModels(result.models.map((m) => m.id));
-                  })
-                }
-              >
-                <RefreshCw data-icon="inline-start" />
-                Discover available models
-              </Button>
-              {models.length > 0 && (
-                <Select
-                  value={model}
-                  onValueChange={(value) => {
-                    if (value) setModel(value);
-                  }}
-                >
-                  <SelectTrigger aria-label="Available models">
-                    <SelectValue placeholder="Select a model" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {models.map((id) => (
-                        <SelectItem key={id} value={id}>
-                          {id}
+            {state.isOwner && (
+              <>
+                <Field>
+                  <FieldLabel htmlFor="ai-provider">AI provider</FieldLabel>
+                  <Select
+                    value={provider}
+                    onValueChange={(value) => {
+                      if (
+                        value !== "akash" &&
+                        value !== "vercel" &&
+                        value !== "together" &&
+                        value !== "groq" &&
+                        value !== "openrouter"
+                      )
+                        return;
+                      setProvider(value);
+                      setModel(
+                        value === state.settings.provider
+                          ? state.settings.model
+                          : value === "akash"
+                            ? "zai-org/GLM-5.3"
+                            : value === "together"
+                              ? "MiniMaxAI/MiniMax-M3"
+                              : value === "groq"
+                                ? "openai/gpt-oss-20b"
+                                : value === "openrouter"
+                                  ? "openrouter/auto-beta"
+                                  : "zai/glm-5.3",
+                      );
+                      setModels([]);
+                    }}
+                  >
+                    <SelectTrigger id="ai-provider">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="akash">AkashML</SelectItem>
+                        <SelectItem value="vercel">
+                          Vercel AI Gateway
                         </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
+                        <SelectItem value="together">Together AI</SelectItem>
+                        <SelectItem value="groq">Groq</SelectItem>
+                        <SelectItem value="openrouter">OpenRouter</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <TextField
+                  id="model"
+                  label="Model ID"
+                  value={model}
+                  onChange={setModel}
+                  hint={
+                    provider === "vercel"
+                      ? "Choose a Vercel AI Gateway model ID. Tool use requires tool-calling support."
+                      : provider === "together"
+                        ? "Choose a Together AI chat model. Tool use requires function-calling support."
+                        : provider === "groq"
+                          ? "Choose a Groq chat model supporting tool use."
+                          : provider === "openrouter"
+                            ? "Choose an OpenRouter model ID. openrouter/auto-beta picks a model automatically; tool use requires tool-calling support."
+                            : "Choose an AkashML text model supporting chat. Tool use also requires tool-calling support."
+                  }
+                />
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={
+                      Boolean(busy) ||
+                      !(provider === "vercel"
+                        ? providers.gateway
+                        : provider === "together"
+                          ? providers.together
+                          : provider === "groq"
+                            ? providers.groq
+                            : provider === "openrouter"
+                              ? providers.openrouter
+                              : providers.akash)
+                    }
+                    onClick={() =>
+                      void run("Loading available models", async () => {
+                        const result = await request<{
+                          models: { id: string }[];
+                        }>(`models?provider=${provider}`);
+                        setModels(result.models.map((m) => m.id));
+                      })
+                    }
+                  >
+                    <RefreshCw data-icon="inline-start" />
+                    Discover available models
+                  </Button>
+                  {models.length > 0 && (
+                    <Select
+                      value={model}
+                      onValueChange={(value) => {
+                        if (value) setModel(value);
+                      }}
+                    >
+                      <SelectTrigger aria-label="Available models">
+                        <SelectValue placeholder="Select a model" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {models.map((id) => (
+                            <SelectItem key={id} value={id}>
+                              {id}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              </>
+            )}
             <TextField
               id="signature"
               label="Email signature"
@@ -472,65 +483,71 @@ export function SettingsView({ providers }: { providers: ProviderStatus }) {
           </form>
         </details>
       </section>
-      <section className="settings-section">
-        <h2>Provider setup</h2>
-        <p className="section-description">
-          Keys are configured in your deployment environment, not stored in the
-          browser.
-        </p>
-        <div className="provider-status">
-          {[
-            {
-              name: "Supabase",
-              ready: providers.supabase,
-              key: "NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, OWNER_EMAIL",
-            },
-            {
-              name: "Vercel AI Gateway",
-              ready: Boolean(providers.gateway),
-              key: "AI_GATEWAY_API_KEY",
-            },
-            { name: "AkashML", ready: providers.akash, key: "AKASH_API_KEY" },
-            {
-              name: "Groq",
-              ready: Boolean(providers.groq),
-              key: "GROQ_API_KEY",
-            },
-            {
-              name: "OpenRouter",
-              ready: Boolean(providers.openrouter),
-              key: "OPENROUTER_API_KEY",
-            },
-            {
-              name: "Together AI",
-              ready: Boolean(providers.together),
-              key: "TOGETHER_API_KEY",
-            },
-            { name: "Tavily", ready: providers.tavily, key: "TAVILY_API_KEY" },
-            {
-              name: "Encryption",
-              ready: providers.encryption,
-              key: "ENCRYPTION_KEY",
-            },
-          ].map((provider) => (
-            <div key={provider.name}>
-              <strong>{provider.name}</strong>
-              <Badge variant={provider.ready ? "secondary" : "outline"}>
-                {provider.ready ? "Configured" : "Needs setup"}
-              </Badge>
-              <small>{provider.key}</small>
-            </div>
-          ))}
-        </div>
-        <Alert>
-          <AlertTitle>Free infrastructure, your AI credits</AlertTitle>
-          <AlertDescription>
-            Use Vercel Hobby, Supabase Free, and Tavily’s free allowance for
-            personal use. AkashML inference uses your balance. Quota failures
-            pause the affected action; the app does not upgrade plans.
-          </AlertDescription>
-        </Alert>
-      </section>
+      {state.isOwner && (
+        <section className="settings-section">
+          <h2>Provider setup</h2>
+          <p className="section-description">
+            Keys are configured in your deployment environment, not stored in
+            the browser.
+          </p>
+          <div className="provider-status">
+            {[
+              {
+                name: "Supabase",
+                ready: providers.supabase,
+                key: "NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, OWNER_EMAIL",
+              },
+              {
+                name: "Vercel AI Gateway",
+                ready: Boolean(providers.gateway),
+                key: "AI_GATEWAY_API_KEY",
+              },
+              { name: "AkashML", ready: providers.akash, key: "AKASH_API_KEY" },
+              {
+                name: "Groq",
+                ready: Boolean(providers.groq),
+                key: "GROQ_API_KEY",
+              },
+              {
+                name: "OpenRouter",
+                ready: Boolean(providers.openrouter),
+                key: "OPENROUTER_API_KEY",
+              },
+              {
+                name: "Together AI",
+                ready: Boolean(providers.together),
+                key: "TOGETHER_API_KEY",
+              },
+              {
+                name: "Tavily",
+                ready: providers.tavily,
+                key: "TAVILY_API_KEY",
+              },
+              {
+                name: "Encryption",
+                ready: providers.encryption,
+                key: "ENCRYPTION_KEY",
+              },
+            ].map((provider) => (
+              <div key={provider.name}>
+                <strong>{provider.name}</strong>
+                <Badge variant={provider.ready ? "secondary" : "outline"}>
+                  {provider.ready ? "Configured" : "Needs setup"}
+                </Badge>
+                <small>{provider.key}</small>
+              </div>
+            ))}
+          </div>
+          <Alert>
+            <AlertTitle>Free infrastructure, your AI credits</AlertTitle>
+            <AlertDescription>
+              Use Vercel Hobby, Supabase Free, and Tavily’s free allowance for
+              personal use. AkashML inference uses your balance. Quota failures
+              pause the affected action; the app does not upgrade plans.
+            </AlertDescription>
+          </Alert>
+        </section>
+      )}
       <section className="settings-section">
         <h2>Your data belongs to you.</h2>
         <p className="section-description">

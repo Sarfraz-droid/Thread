@@ -133,7 +133,7 @@ Keep semantic input borders, readable labels, visible focus, and distinct valida
 
 ### Navigation
 
-Separate Dashboard, Chat, Profile & memory, Opportunities, and Settings. Sign out remains available in the top bar on desktop and mobile. Signed-out `/` shows the public introduction; `/login` provides Supabase email/password authentication. Authenticated `/` opens the workspace, defaulting to Dashboard. Setup instructions appear when authentication configuration is missing.
+Separate Dashboard, Chat, Profile & memory, Opportunities, and Settings. Sign out remains available in the top bar on desktop and mobile. Signed-out `/` shows the public introduction; `/login` provides Supabase email/password authentication; `/signup` uses the same theme-aware auth layout for owner account creation, confirmation notices, and actionable errors. Authenticated `/` opens the workspace, defaulting to Dashboard. Setup instructions appear when authentication configuration is missing.
 
 ### Opportunity board and review
 

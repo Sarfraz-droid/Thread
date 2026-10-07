@@ -16,7 +16,7 @@ import {
   type WorkspaceState,
 } from "@mailer/core";
 import {
-  requireOwner,
+  requireUser,
   assertSameOrigin,
   isConfigured,
   sessionClient,
@@ -79,7 +79,7 @@ export async function api(request: Request, path: string[]) {
       method = request.method;
     if (route === "status" && method === "GET")
       return Response.json({ configured: isConfigured() });
-    const { user, db } = await requireOwner();
+    const { user, db, isOwner } = await requireUser();
     const uid = user.id;
     assertSameOrigin(request);
     const timestamp = () => new Date().toISOString();
@@ -132,6 +132,7 @@ export async function api(request: Request, path: string[]) {
       const state: WorkspaceState = {
         profile: profileSchema.parse(must(results[0]).data ?? emptyProfile),
         settings: await getSettings(db, uid),
+        isOwner,
         memories: [
           ...(must(results[1]) as WorkspaceState["memories"]),
           ...(await listMem0Memories(db, uid)),
@@ -161,7 +162,14 @@ export async function api(request: Request, path: string[]) {
       return Response.json(data);
     }
     if (route === "settings" && method === "PUT") {
-      const settings = settingsSchema.parse(await json(request));
+      const input = settingsSchema.parse(await json(request));
+      // Only the owner may choose the AI provider/model; everyone else keeps the default agent.
+      const settings = isOwner
+        ? input
+        : {
+            ...(await getSettings(db, uid)),
+            signature: input.signature,
+          };
       check(
         await db
           .from("profiles")
@@ -171,6 +179,8 @@ export async function api(request: Request, path: string[]) {
       return Response.json(settings);
     }
     if (route === "models" && method === "GET") {
+      if (!isOwner)
+        throw new HttpError(403, "Model selection is not available.");
       const requested = new URL(request.url).searchParams.get("provider");
       const provider =
         requested === null

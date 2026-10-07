@@ -19,6 +19,7 @@ function initialState(): WorkspaceState {
   return {
     profile: emptyProfile,
     settings: { model: "test-model", signature: "" },
+    isOwner: true,
     memories: [],
     documents: [],
     conversations: [],
@@ -968,4 +969,51 @@ test("dark opportunity modal closes with Escape and restores focus", async ({
   await page.keyboard.press("Escape");
   await expect(modal).toHaveCount(0);
   await expect(trigger).toBeFocused();
+});
+
+test("sign-up is discoverable and matches the auth theme on mobile and desktop", async ({
+  page,
+}) => {
+  await page.goto("/login");
+  await page.getByRole("link", { name: "Create an account" }).click();
+  await expect(page).toHaveURL(/\/signup$/);
+  await expect(
+    page.getByRole("heading", { name: "Create your account" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Email", { exact: true })).toHaveAttribute(
+    "type",
+    "email",
+  );
+  await expect(page.getByLabel("Password", { exact: true })).toHaveAttribute(
+    "minlength",
+    "8",
+  );
+  await expect(page.getByLabel("Confirm password")).toHaveAttribute(
+    "autocomplete",
+    "new-password",
+  );
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+    )
+    .toBe(true);
+  await page.screenshot({
+    path: `.impeccable/review/${test.info().project.name}-signup.png`,
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page.getByRole("button", { name: "Switch to dark theme" }).click();
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await page.screenshot({
+    path: `.impeccable/review/${test.info().project.name}-signup-dark.png`,
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page.goto("/signup?sent=1");
+  await expect(
+    page.getByText("Check your email", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Create account", exact: true }),
+  ).toHaveCount(0);
 });

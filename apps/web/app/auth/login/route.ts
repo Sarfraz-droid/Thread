@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { isOwnerAccount } from "@/lib/owner";
+import { isConfirmedAccount } from "@/lib/owner";
 import { isConfigured, sessionClient } from "@/lib/server/supabase";
 
 const credentials = z.object({
@@ -36,10 +36,10 @@ export async function POST(request: Request) {
     if (
       userError ||
       !data.user ||
-      !isOwnerAccount(data.user, process.env.OWNER_EMAIL)
+      !isConfirmedAccount(data.user)
     ) {
       await client.auth.signOut();
-      return failure("not_owner");
+      return failure("unconfirmed");
     }
     return redirectTo("/");
   } catch {

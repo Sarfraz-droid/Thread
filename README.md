@@ -14,7 +14,7 @@ cp apps/web/.env.example apps/web/.env.local
 bun run dev
 ```
 
-Open http://localhost:3000. Signed-out visitors see a public introduction at `/`, with links to sign in at `/login` or explore `/preview`. Sign in with your email and password through Supabase; only the verified `OWNER_EMAIL` account can open the dashboard. `/preview` shows the dashboard without account data; protected APIs still require authentication. Missing credentials appear only on the login setup screen.
+Open http://localhost:3000. Signed-out visitors see a public introduction at `/`, with links to sign in at `/login` or explore `/preview`. Create the configured owner account at `/signup`, confirm your email if required, then sign in through Supabase. Only the verified `OWNER_EMAIL` account can open the dashboard. `/preview` shows the dashboard without account data; protected APIs still require authentication. Missing credentials appear only on the login setup screen.
 
 ## Configure services
 
@@ -136,3 +136,12 @@ OpenRouter: set `OPENROUTER_API_KEY` and optionally `OPENROUTER_MODEL` (default 
 ## License and security
 
 MIT licensed; see [LICENSE](LICENSE). Contributions: [CONTRIBUTING.md](CONTRIBUTING.md). Report vulnerabilities privately per [SECURITY.md](SECURITY.md). This is a self-hosted, single-owner app: you bring your own Supabase project, AI provider keys, and Google OAuth client.
+
+
+### Account sign-up
+
+`/signup` creates the configured `OWNER_EMAIL` account using Supabase email/password authentication. Enable email authentication and new user sign-ups in Supabase. Set its Site URL and the deployed `APP_URL` to your application’s HTTPS URL, and allow `https://your-domain/auth/callback` in Authentication → URL Configuration → Redirect URLs. Keep local URLs limited to development environments.
+
+When email confirmation is enabled, the sign-up page shows a confirmation notice. Open the confirmation email in the same browser used to sign up so the PKCE verifier cookie is available. The callback exchanges the code, verifies the confirmed owner, and opens the workspace. When confirmation is disabled, a verified owner session opens the workspace directly. Existing accounts should use `/login`. This remains a private owner workspace; sign-up does not grant other email addresses access.
+
+Run `bun run test:auth` for the isolated sign-up and confirmation route checks.
