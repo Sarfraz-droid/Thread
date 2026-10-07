@@ -1,0 +1,39 @@
+{
+  "name": "networking-mailer-manager",
+  "private": true,
+  "packageManager": "bun@1.3.9",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "eslint .",
+    "typecheck": "turbo typecheck",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "bun test packages/core tests/unit",
+    "test:e2e": "playwright test",
+    "db:start": "bunx supabase start",
+    "db:reset": "bunx supabase db reset",
+    "db:test": "bun scripts/test-db.ts",
+    "db:types": "bunx supabase gen types typescript --local > packages/core/src/database.types.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
+    "@types/bun": "1.4.2",
+    "eslint": "10.12.0",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "17.13.0",
+    "prettier": "3.9.9",
+    "supabase": "2.119.0",
+    "turbo": "2.11.7",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.71.1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

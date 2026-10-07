@@ -1,0 +1,8 @@
+bun.lock
+.next
+node_modules
+.turbo
+playwright-report
+test-results
+packages/ui/src/components
+packages/core/src/database.types.ts

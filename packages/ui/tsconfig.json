@@ -1,0 +1,9 @@
+{
+  "extends": "../config/tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": { "@mailer/ui/*": ["./src/*"] }
+  },
+  "include": ["src"]
+}

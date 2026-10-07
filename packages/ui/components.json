@@ -1,0 +1,20 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "base-nova",
+  "rsc": true,
+  "tsx": true,
+  "iconLibrary": "lucide",
+  "tailwind": {
+    "config": "",
+    "css": "../../apps/web/app/globals.css",
+    "baseColor": "neutral",
+    "cssVariables": true
+  },
+  "aliases": {
+    "components": "@mailer/ui/components",
+    "utils": "@mailer/ui/lib/utils",
+    "ui": "@mailer/ui/components",
+    "lib": "@mailer/ui/lib",
+    "hooks": "@mailer/ui/hooks"
+  }
+}

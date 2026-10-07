@@ -1,0 +1,71 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**"],
+      "env": [
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+        "APP_URL",
+        "OWNER_EMAIL",
+        "SUPABASE_SECRET_KEY",
+        "ENCRYPTION_KEY",
+        "AKASH_API_KEY",
+        "TAVILY_API_KEY",
+        "GOOGLE_CLIENT_ID",
+        "GOOGLE_CLIENT_SECRET",
+        "AKASH_MODEL",
+        "AI_PROVIDER",
+        "AI_GATEWAY_API_KEY",
+        "AI_GATEWAY_MODEL",
+        "TOGETHER_API_KEY",
+        "TOGETHER_MODEL",
+        "GROQ_API_KEY",
+        "GROQ_MODEL",
+        "OPENROUTER_API_KEY",
+        "OPENROUTER_MODEL",
+        "MEM0_DATABASE_URL",
+        "MEM0_EMBEDDING_API_KEY",
+        "MEM0_EMBEDDING_BASE_URL",
+        "MEM0_EMBEDDING_MODEL",
+        "MEM0_EMBEDDING_DIMS"
+      ],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"]
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true,
+      "env": [
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+        "APP_URL",
+        "OWNER_EMAIL",
+        "SUPABASE_SECRET_KEY",
+        "ENCRYPTION_KEY",
+        "AKASH_API_KEY",
+        "TAVILY_API_KEY",
+        "GOOGLE_CLIENT_ID",
+        "GOOGLE_CLIENT_SECRET",
+        "AKASH_MODEL",
+        "AI_PROVIDER",
+        "AI_GATEWAY_API_KEY",
+        "AI_GATEWAY_MODEL",
+        "TOGETHER_API_KEY",
+        "TOGETHER_MODEL",
+        "GROQ_API_KEY",
+        "GROQ_MODEL",
+        "OPENROUTER_API_KEY",
+        "OPENROUTER_MODEL",
+        "MEM0_DATABASE_URL",
+        "MEM0_EMBEDDING_API_KEY",
+        "MEM0_EMBEDDING_BASE_URL",
+        "MEM0_EMBEDDING_MODEL",
+        "MEM0_EMBEDDING_DIMS"
+      ]
+    }
+  }
+}

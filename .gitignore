@@ -1,0 +1,21 @@
+node_modules/
+.next/
+.turbo/
+.env*
+!.env.example
+!.env.local.example
+coverage/
+playwright-report/
+test-results/
+.code-review-graph/
+supabase/.temp/
+supabase/.branches/
+.impeccable/review/
+
+# Local tooling artifacts
+*.tsbuildinfo
+.impeccable/mocks/
+.impeccable/hook.cache.json
+.kilo/
+.qodo/
+.DS_Store

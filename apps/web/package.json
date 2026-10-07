@@ -1,0 +1,53 @@
+{
+  "name": "@mailer/web",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-sdk/mcp": "2.0.67",
+    "@ai-sdk/openai-compatible": "3.0.63",
+    "@fontsource/geist-mono": "^5.3.0",
+    "@fontsource/inter": "5.3.0",
+    "@fontsource/jetbrains-mono": "5.3.0",
+    "@fontsource/outfit": "^5.3.0",
+    "@fontsource/playfair-display": "5.3.0",
+    "@mailer/core": "workspace:*",
+    "@mailer/ui": "workspace:*",
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.117.2",
+    "ai": "7.0.128",
+    "lucide-react": "1.52.0",
+    "mammoth": "1.13.0",
+    "mem0ai": "3.3.1",
+    "next": "16.3.8",
+    "nodemailer": "10.0.15",
+    "pdfjs-dist": "6.4.299",
+    "pg": "8.20.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "0.0.1",
+    "sonner": "2.0.8",
+    "tesseract.js": "7.0.0",
+    "textarea-caret": "^3.1.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "26.6.4",
+    "@types/nodemailer": "8.0.2",
+    "@types/pg": "8.23.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/textarea-caret": "^3.0.4",
+    "tailwindcss": "4.3.3",
+    "tw-animate-css": "1.4.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
