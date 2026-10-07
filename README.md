@@ -76,7 +76,12 @@ Connect Gmail in Settings after signing in. Authorization requests send-only acc
 
 ## Deploy
 
-Import this repository into Vercel, select the Next.js preset, and set the project root to `apps/web`. The app’s `vercel.json` pins the Next.js preset, `bun run build`, and `.next` output. In Build and Deployment settings, remove any `public` output override; enable including files outside the root. Root Directory is a dashboard setting and must be `apps/web` for this config to apply. Enable including files outside the root so shared workspace packages are available. Use Node.js 22+, install with Bun, and use the app's `bun run build` command. Set the environment variables from `.env.example`, with `APP_URL` equal to the final production URL. Configure the Gmail OAuth callback URL before connecting your sender.
+Import this repository into Vercel. Two root-directory configurations are supported:
+
+- **Repository root (blank or `.`):** the root `vercel.json` explicitly selects `apps/web/package.json` and the Next.js builder. The builder runs `bun run build` inside the app and uses its `.next` output. This explicit build entry uses Vercel's legacy `builds` configuration to support projects already importing the repository root; build/output dashboard overrides are not used for this build entry.
+- **App root (`apps/web`, recommended for new projects):** select the Next.js preset and enable including files outside the root. `apps/web/vercel.json` sets `bun run build` and `.next` output.
+
+Use Node.js 22+ and install with Bun. Commit and push the configuration for the selected root before deploying; redeploying an older commit will not pick up new files. Set the environment variables from `.env.example`, with `APP_URL` equal to the final production URL. Configure the Gmail OAuth callback URL before connecting your sender.
 
 Vercel Hobby and Supabase Free can cover a small personal deployment within their plan limits. AkashML model usage and search quotas are separate. No deployment or external credentials are provisioned by this repository.
 
