@@ -76,7 +76,7 @@ Connect Gmail in Settings after signing in. Authorization requests send-only acc
 
 ## Deploy
 
-Import this repository into Vercel, select the Next.js preset, and set the project root to `apps/web`. Enable including files outside the root so shared workspace packages are available. Use Node.js 22+, install with Bun, and use the app's `bun run build` command. Set the environment variables from `.env.example`, with `APP_URL` equal to the final production URL. Configure the Gmail OAuth callback URL before connecting your sender.
+Import this repository into Vercel, select the Next.js preset, and set the project root to `apps/web`. The app’s `vercel.json` pins the Next.js preset, `bun run build`, and `.next` output. In Build and Deployment settings, remove any `public` output override; enable including files outside the root. Root Directory is a dashboard setting and must be `apps/web` for this config to apply. Enable including files outside the root so shared workspace packages are available. Use Node.js 22+, install with Bun, and use the app's `bun run build` command. Set the environment variables from `.env.example`, with `APP_URL` equal to the final production URL. Configure the Gmail OAuth callback URL before connecting your sender.
 
 Vercel Hobby and Supabase Free can cover a small personal deployment within their plan limits. AkashML model usage and search quotas are separate. No deployment or external credentials are provisioned by this repository.
 
