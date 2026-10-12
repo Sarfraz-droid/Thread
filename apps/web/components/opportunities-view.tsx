@@ -36,19 +36,26 @@ import {
   AlertTitle,
   AlertDescription,
 } from "@mailer/ui/components/alert";
-import { parseRecipientEmails, validateFile } from "@mailer/core";
+import { parseRecipientEmails } from "@mailer/core";
 import {
+  type DraftReviewResult,
   type ReferralAnswer,
   type ReferralDraftResult,
   type Opportunity,
   type Draft,
   type ResearchSource,
-  type Document,
   type DraftReference,
 } from "@mailer/core";
 import { request, useWorkspace } from "./workspace-context";
-import { TextField, UploadButton, uploadDocument, Spinner } from "./common";
+import { BoardSkeleton, TextField, Spinner } from "./common";
 import { DraftChat } from "./draft-chat";
+import { OpportunityIntake } from "./opportunity-intake";
+import {
+  AutoModePanel,
+  autoSteps,
+  type AutoStep,
+  type AutoStepId,
+} from "./auto-mode";
 import {
   Dialog,
   DialogContent,
@@ -59,19 +66,23 @@ import {
   DialogHeader,
   DialogTrigger,
 } from "@mailer/ui/components/dialog";
+const editableStatuses: Draft["status"][] = ["draft", "failed"];
 
 function DraftEditor({
   draft,
   chatContainer,
   onReference,
+  onDirtyChange,
 }: {
   draft: Draft;
   chatContainer: HTMLElement | null;
   onReference: () => void;
+  onDirtyChange: (dirty: boolean) => void;
 }) {
   const { state, busy, run, reload } = useWorkspace();
   const [content, setContent] = useState(draft);
   const [dirty, setDirty] = useState(false);
+  useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
   const [cc, setCc] = useState((draft.cc_emails ?? []).join(", "));
   const [bcc, setBcc] = useState((draft.bcc_emails ?? []).join(", "));
   const [agentVersion, setAgentVersion] = useState<number>();
@@ -503,8 +514,21 @@ function DeleteOpportunity({
     </Dialog>
   );
 }
-function OpportunityEditor({ opportunity }: { opportunity: Opportunity }) {
+function OpportunityEditor({
+  opportunity,
+  autoStart = false,
+  onAutoStarted,
+}: {
+  opportunity: Opportunity;
+  autoStart?: boolean;
+  onAutoStarted?: () => void;
+}) {
   const { state, busy, run, reload } = useWorkspace();
+  const [autoRun, setAutoRun] = useState<AutoStep[]>();
+  const [draftDirty, setDraftDirty] = useState(false);
+  // Set while auto mode waits on clarification answers, so answering resumes it.
+  const autoPaused = useRef(false);
+  const autoStarted = useRef(false);
   const [details, setDetails] = useState(opportunity),
     [sources, setSources] = useState<ResearchSource[]>([]),
     [dirty, setDirty] = useState(false),
@@ -518,7 +542,7 @@ function OpportunityEditor({ opportunity }: { opportunity: Opportunity }) {
   useEffect(() => {
     if (questions.length) clarificationRef.current?.focus();
   }, [questions]);
-  async function generateDraft(respond = false) {
+  async function generateDraft(respond = false): Promise<Draft | undefined> {
     const submitted = respond
       ? [
           ...previousAnswers,
@@ -545,11 +569,167 @@ function OpportunityEditor({ opportunity }: { opportunity: Opportunity }) {
     setAnswers({});
     setDraftId(result.id);
     await reload();
+    return result;
   }
   const drafts = state.drafts.filter(
       (d) => d.opportunity_id === opportunity.id,
     ),
     draft = drafts.find((d) => d.id === draftId) ?? drafts[0];
+  const draftEditable = Boolean(
+    draft && editableStatuses.includes(draft.status),
+  );
+  function markStep(id: AutoStepId, patch: Partial<AutoStep>) {
+    setAutoRun((steps) =>
+      steps?.map((step) => (step.id === id ? { ...step, ...patch } : step)),
+    );
+  }
+  // Research → draft → self-review → send, each as its own request so every
+  // step stays inside the route time limit and its progress is visible.
+  async function autoPipeline(existing?: Draft) {
+    let step: AutoStepId = "research";
+    try {
+      let working = existing;
+      if (!working) {
+        markStep("research", { status: "active", detail: undefined });
+        if (details.research)
+          markStep("research", {
+            status: "done",
+            detail: "Using saved research",
+          });
+        else if (!details.company && !details.job_url)
+          markStep("research", {
+            status: "skipped",
+            detail: "No company or job link to research",
+          });
+        else
+          try {
+            const result = await request<Opportunity>(
+              `opportunities/${opportunity.id}/research`,
+              "POST",
+              { force: false },
+            );
+            setDetails(result);
+            markStep("research", { status: "done", detail: "Research saved" });
+          } catch (error) {
+            // Research improves the email but is not required to write it.
+            markStep("research", {
+              status: "skipped",
+              detail: `Continuing without research: ${error instanceof Error ? error.message : "it did not finish"}`,
+            });
+          }
+        step = "draft";
+        markStep("draft", {
+          status: "active",
+          detail: "Drafting from your profile and memories",
+        });
+        working = await generateDraft();
+        if (!working) {
+          autoPaused.current = true;
+          markStep("draft", {
+            status: "blocked",
+            detail:
+              "Answer the questions below. Auto mode continues once you do.",
+          });
+          return;
+        }
+      } else
+        setAutoRun((steps) =>
+          steps?.map((s) =>
+            s.id === "research" && s.status === "pending"
+              ? { ...s, status: "skipped", detail: "Draft already written" }
+              : s,
+          ),
+        );
+      markStep("draft", { status: "done", detail: working.subject });
+      step = "review";
+      markStep("review", {
+        status: "active",
+        detail: "Checking facts, names, tone, and the referral ask",
+      });
+      const review = await request<DraftReviewResult>(
+        `drafts/${working.id}/review`,
+        "POST",
+        { version: working.version },
+      );
+      await reload();
+      const notes = review.issues.map(
+        (issue) =>
+          `${issue.severity === "blocking" ? "Needs you" : "Fixed"}: ${issue.note}`,
+      );
+      if (!review.approved) {
+        markStep("review", {
+          status: "blocked",
+          detail: review.summary,
+          notes,
+        });
+        return;
+      }
+      markStep("review", {
+        status: "done",
+        detail: `${review.revised ? "Revised. " : ""}${review.summary}`,
+        notes,
+      });
+      step = "send";
+      if (!state.gmail.connected) {
+        markStep("send", {
+          status: "blocked",
+          detail: "Connect Gmail in Settings, then resume auto mode.",
+        });
+        return;
+      }
+      markStep("send", {
+        status: "active",
+        detail: `Sending to ${review.draft.recipient_email}`,
+      });
+      const outcome = await request<{ status: string; error?: string }>(
+        `drafts/${working.id}/send`,
+        "POST",
+        {
+          version: review.draft.version,
+          idempotency_key: crypto.randomUUID(),
+        },
+      );
+      await reload();
+      if (outcome.status !== "sent")
+        throw new Error(
+          outcome.error ??
+            "The send request is awaiting verification. Check Gmail Sent.",
+        );
+      markStep("send", {
+        status: "done",
+        detail: `Sent to ${review.draft.recipient_email}`,
+      });
+    } catch (error) {
+      markStep(step, {
+        status: "blocked",
+        detail: error instanceof Error ? error.message : "This step failed.",
+      });
+      throw error;
+    }
+  }
+  const autoBlocker = dirty
+    ? "Save opportunity details before running auto mode."
+    : draftDirty
+      ? "Save your email changes before running auto mode."
+      : questions.length && !autoPaused.current
+        ? "Answer the questions below first."
+        : undefined;
+  function runAuto() {
+    autoPaused.current = false;
+    setQuestions([]);
+    setAnswers({});
+    setPreviousAnswers([]);
+    setAutoRun(autoSteps());
+    void run("Auto mode", () =>
+      autoPipeline(draftEditable ? draft : undefined),
+    );
+  }
+  useEffect(() => {
+    if (!autoStart || busy || autoStarted.current) return;
+    autoStarted.current = true;
+    onAutoStarted?.();
+    runAuto();
+  });
   function edit(field: keyof Opportunity, value: string) {
     setDetails((d) => ({ ...d, [field]: value }));
     setDirty(true);
@@ -594,6 +774,15 @@ function OpportunityEditor({ opportunity }: { opportunity: Opportunity }) {
         className="referral-content opportunity-editor"
         aria-label="Referral and email editor"
       >
+        {(autoRun || !draft || draftEditable) && (
+          <AutoModePanel
+            steps={autoRun}
+            running={busy === "Auto mode"}
+            disabled={Boolean(busy) || Boolean(autoBlocker)}
+            disabledReason={autoBlocker}
+            onRun={runAuto}
+          />
+        )}
         {questions.length > 0 && (
           <section
             ref={clarificationRef}
@@ -609,7 +798,13 @@ function OpportunityEditor({ opportunity }: { opportunity: Opportunity }) {
             <form
               onSubmit={(event) => {
                 event.preventDefault();
-                void run("Drafting your email", () => generateDraft(true));
+                void run("Drafting your email", async () => {
+                  const created = await generateDraft(true);
+                  if (created && autoPaused.current) {
+                    autoPaused.current = false;
+                    await autoPipeline(created);
+                  }
+                });
               }}
             >
               <FieldGroup>
@@ -650,6 +845,7 @@ function OpportunityEditor({ opportunity }: { opportunity: Opportunity }) {
             draft={draft}
             chatContainer={chatContainer}
             onReference={() => setMobilePanel("agent")}
+            onDirtyChange={setDraftDirty}
           />
         )}
         <details className="referral-detail-panel" open={!draft}>
@@ -967,16 +1163,20 @@ export function OpportunitiesView({
   initialSelected?: string;
   initialCreate?: boolean;
 }) {
-  const { state, busy, error, run, reload } = useWorkspace();
-  const [selected, setSelected] = useState<string | undefined>(initialSelected),
-    [input, setInput] = useState(""),
-    [documentId, setDocumentId] = useState<string>(),
-    [file, setFile] = useState<File>(),
-    [previewUrl, setPreviewUrl] = useState<string>();
+  const { state, busy, loaded, error, run, reload } = useWorkspace();
+  const [selected, setSelected] = useState<string | undefined>(initialSelected);
   const [dialogOpen, setDialogOpen] = useState(Boolean(initialSelected));
+  const [autoStartId, setAutoStartId] = useState<string>();
   const [showIntake, setShowIntake] = useState(
-    initialCreate || !state.opportunities.length,
+    initialCreate || (loaded && !state.opportunities.length),
   );
+  // An empty workspace opens the intake, but only once data has actually loaded.
+  const promptedEmpty = useRef(loaded);
+  useEffect(() => {
+    if (!loaded || promptedEmpty.current) return;
+    promptedEmpty.current = true;
+    if (!state.opportunities.length) setShowIntake(true);
+  }, [loaded, state.opportunities.length]);
   const [view, setView] = useState<"board" | "table">("board");
   const [sentRange, setSentRange] = useState<"today" | "all">("today");
   const today = new Date().toDateString();
@@ -996,193 +1196,19 @@ export function OpportunitiesView({
     );
   };
   const opener = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    if (!file?.type.startsWith("image/")) {
-      setPreviewUrl(undefined);
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
-  function selectFile(next: File) {
-    void run("Adding attachment", async () => {
-      validateFile(next.type, next.size);
-      setFile(next);
-      setDocumentId(undefined);
-    });
-  }
   const opportunity = state.opportunities.find((o) => o.id === selected);
-  async function attach(document: Document) {
-    setDocumentId(document.id);
-    setInput((value) => `${value}${value ? "\n\n" : ""}${document.text}`);
-  }
   return (
     <>
-      <Dialog
+      <OpportunityIntake
         open={showIntake}
-        onOpenChange={(open) => {
-          if (!busy) setShowIntake(open);
+        onOpenChange={setShowIntake}
+        onCreated={(created, auto) => {
+          setSelected(created.id);
+          setAutoStartId(auto ? created.id : undefined);
+          setDialogOpen(true);
+          setShowIntake(false);
         }}
-        disablePointerDismissal
-      >
-        <DialogContent className="intake-dialog" showCloseButton={false}>
-          <DialogHeader className="intake-heading">
-            <div>
-              <DialogTitle>Add an opportunity</DialogTitle>
-              <DialogDescription>
-                Start with the details you already have.
-              </DialogDescription>
-            </div>
-            <DialogClose
-              render={<Button variant="ghost" disabled={Boolean(busy)} />}
-            >
-              Close
-              <X data-icon="inline-end" />
-            </DialogClose>
-          </DialogHeader>
-          {error && (
-            <Alert variant="destructive">
-              <AlertTitle>Unable to add opportunity</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <ol className="intake-steps" aria-label="Creation steps">
-            <li aria-current="step">
-              <span>1</span>Add context
-            </li>
-            <li>
-              <span>2</span>Review details
-            </li>
-            <li>
-              <span>3</span>Create a draft
-            </li>
-          </ol>
-          <p>Paste a referral message or job link, or attach a screenshot.</p>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void run("Reading referral details", async () => {
-                let attachedId = documentId;
-                let referral = input;
-                if (file) {
-                  const uploaded = await uploadDocument(file, "referral");
-                  attachedId = uploaded.id;
-                  referral = [input, uploaded.text]
-                    .filter(Boolean)
-                    .join("\n\n");
-                  setInput(referral);
-                  setDocumentId(uploaded.id);
-                  setFile(undefined);
-                }
-                const created = await request<Opportunity>(
-                  "opportunities",
-                  "POST",
-                  { input: referral, document_id: attachedId },
-                );
-                setSelected(created.id);
-                setDialogOpen(true);
-                setShowIntake(false);
-                await reload();
-              });
-            }}
-          >
-            <FieldGroup>
-              <TextField
-                id="referral-input"
-                label="Referral details"
-                multiline
-                rows={7}
-                placeholder="Paste the referral message or job URL here…"
-                value={input}
-                onChange={setInput}
-                disabled={Boolean(busy)}
-                onPaste={(event) => {
-                  const image = Array.from(event.clipboardData.items)
-                    .find(
-                      (item) =>
-                        item.kind === "file" && item.type.startsWith("image/"),
-                    )
-                    ?.getAsFile();
-                  if (!image || busy) return;
-                  event.preventDefault();
-                  const text = event.clipboardData.getData("text/plain");
-                  if (text) {
-                    const { selectionStart, selectionEnd } =
-                      event.currentTarget;
-                    setInput(
-                      (value) =>
-                        value.slice(0, selectionStart) +
-                        text +
-                        value.slice(selectionEnd),
-                    );
-                  }
-                  selectFile(image);
-                }}
-                hint="Paste text or an image here. Include the recipient’s email if available."
-              />
-              {file && (
-                <div
-                  className="flex flex-col gap-2 rounded-lg border border-border p-3"
-                  aria-label="Referral attachment"
-                >
-                  {previewUrl && (
-                    /* Clipboard previews use temporary blob URLs. */
-                    <img
-                      src={previewUrl}
-                      alt="Referral image preview"
-                      className="max-h-64 max-w-full self-start rounded-md object-contain"
-                    />
-                  )}
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="truncate text-sm">{file.name}</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Remove referral attachment"
-                      disabled={Boolean(busy)}
-                      onClick={() => setFile(undefined)}
-                    >
-                      <X />
-                    </Button>
-                  </div>
-                </div>
-              )}
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <UploadButton
-                  kind="referral"
-                  label="Add a file or screenshot"
-                  onUploaded={attach}
-                  onSelected={selectFile}
-                />
-                <Button
-                  type="submit"
-                  disabled={
-                    (!input.trim() && !documentId && !file) || Boolean(busy)
-                  }
-                >
-                  {busy === "Reading referral details" ? (
-                    <Spinner />
-                  ) : (
-                    <ArrowRight data-icon="inline-end" />
-                  )}
-                  Structure opportunity
-                </Button>
-              </div>
-            </FieldGroup>
-          </form>
-          <p className="intake-note">
-            Next, review the extracted company, role, and contact details. You
-            can edit everything before creating an email.
-          </p>
-          {documentId && (
-            <p className="section-description">
-              File text is ready above. Correct anything the extraction missed.
-            </p>
-          )}
-        </DialogContent>
-      </Dialog>
+      />
       <Dialog
         open={dialogOpen && Boolean(opportunity)}
         onOpenChange={(open) => {
@@ -1242,9 +1268,6 @@ export function OpportunitiesView({
                     setShowIntake(true);
                     setDialogOpen(false);
                     setSelected(undefined);
-                    setInput("");
-                    setDocumentId(undefined);
-                    setFile(undefined);
                   }}
                 >
                   <Plus data-icon="inline-start" />
@@ -1255,8 +1278,9 @@ export function OpportunitiesView({
           </div>
           <div
             className="opportunities-layout referrals-overview"
-            data-empty={!state.opportunities.length}
+            data-empty={loaded && !state.opportunities.length}
           >
+            {!loaded && <BoardSkeleton />}
             {state.opportunities.length > 0 && view === "table" && (
               <section
                 className="opportunity-table-wrap"
@@ -1443,7 +1467,7 @@ export function OpportunitiesView({
                 )}
               </section>
             )}
-            {!state.opportunities.length && (
+            {loaded && !state.opportunities.length && (
               <div className="dashboard-empty">
                 <p>
                   No opportunities yet. Add a referral or job link to get
@@ -1507,7 +1531,12 @@ export function OpportunitiesView({
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            <OpportunityEditor key={opportunity.id} opportunity={opportunity} />
+            <OpportunityEditor
+              key={opportunity.id}
+              opportunity={opportunity}
+              autoStart={autoStartId === opportunity.id}
+              onAutoStarted={() => setAutoStartId(undefined)}
+            />
           </DialogContent>
         )}
       </Dialog>

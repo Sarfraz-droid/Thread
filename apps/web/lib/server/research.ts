@@ -21,25 +21,31 @@ export async function intake(
   db: Db,
   userId: string,
   input: string,
-  documentId?: string,
+  documentIds: string[] = [],
 ) {
   let text = input;
-  if (documentId) {
-    const doc = must(
+  if (documentIds.length) {
+    const docs = must(
       await db
         .from("documents")
-        .select("text")
+        .select("id,text")
         .eq("user_id", userId)
-        .eq("id", documentId)
-        .single(),
+        .in("id", documentIds),
     );
-    text += `\nUPLOADED REFERRAL:\n${doc.text}`;
+    if (docs.length !== new Set(documentIds).size)
+      throw new HttpError(400, "An uploaded referral file was not found.");
+    // Keep the owner's upload order so multi-screenshot messages read in sequence.
+    documentIds.forEach((id, index) => {
+      const doc = docs.find((d) => d.id === id);
+      if (doc?.text.trim())
+        text += `\nUPLOADED REFERRAL ${index + 1} OF ${documentIds.length}:\n${doc.text}`;
+    });
   }
   const details = await structured(
     db,
     userId,
     opportunitySchema,
-    `Extract referral details from this source. Do not infer recipient email. If the source explicitly names several recipients for the same referral, include all their email addresses separated by commas in recipient_email. Preserve instructions. Missing fields should be empty.\nSOURCE DATA: ${JSON.stringify(text)}`,
+    `Extract referral details from this source. It may combine several uploaded screenshots or files of the same conversation; merge them into one opportunity. Do not infer recipient email. If the source explicitly names several recipients for the same referral, include all their email addresses separated by commas in recipient_email. Preserve instructions. Missing fields should be empty.\nSOURCE DATA: ${JSON.stringify(text)}`,
   );
   // A model may only copy a recipient address actually present in the supplied input.
   if (details.recipient_email) {
@@ -53,7 +59,7 @@ export async function intake(
       .insert({
         user_id: userId,
         input: text.slice(0, 65000),
-        document_id: documentId ?? null,
+        document_id: documentIds[0] ?? null,
         ...details,
       })
       .select("*")

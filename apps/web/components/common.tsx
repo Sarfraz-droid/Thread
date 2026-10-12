@@ -28,6 +28,7 @@ import {
   AttachmentMedia,
   AttachmentTitle,
 } from "@mailer/ui/components/attachment";
+import { Skeleton } from "@mailer/ui/components/skeleton";
 import { type Document } from "@mailer/core";
 import { browserClient } from "@/lib/supabase-browser";
 import { extractText } from "@/lib/extract";
@@ -35,6 +36,73 @@ import { request, useWorkspace } from "./workspace-context";
 export function Spinner() {
   return (
     <Loader2 data-icon="inline-start" className="spin" aria-hidden="true" />
+  );
+}
+// Holds the board's shape while the workspace loads so nothing jumps in later.
+export function BoardSkeleton() {
+  return (
+    <div
+      className="opportunity-board"
+      role="status"
+      aria-label="Loading opportunities"
+    >
+      {[3, 2, 1, 2].map((cards, column) => (
+        <div key={column} className="kanban-column" aria-hidden="true">
+          <div className="kanban-heading">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-5 w-6 rounded-full" />
+          </div>
+          <div className="kanban-cards">
+            {Array.from({ length: cards }, (_, card) => (
+              <div key={card} className="kanban-card skeleton-card">
+                <Skeleton className="size-8 rounded-full" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+export function DashboardSkeleton() {
+  return (
+    <div
+      className="page-body dashboard-body"
+      role="status"
+      aria-label="Loading your workspace"
+    >
+      <div className="page-heading" aria-hidden="true">
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-7 w-40" />
+          <Skeleton className="h-4 w-56" />
+        </div>
+        <Skeleton className="h-9 w-40" />
+      </div>
+      <div className="home-focus skeleton-focus" aria-hidden="true">
+        <div className="flex flex-col gap-4">
+          <Skeleton className="h-9 w-4/5 bg-background/60" />
+          <Skeleton className="h-9 w-3/5 bg-background/60" />
+          <Skeleton className="h-4 w-full bg-background/60" />
+          <Skeleton className="h-9 w-36 bg-background/60" />
+        </div>
+        <div className="flex flex-col gap-3">
+          {[0, 1, 2].map((row) => (
+            <Skeleton key={row} className="h-12 w-full bg-background/60" />
+          ))}
+        </div>
+      </div>
+      <div className="dashboard-stats" aria-hidden="true">
+        {[0, 1, 2].map((card) => (
+          <Skeleton key={card} className="h-28 w-full rounded-xl" />
+        ))}
+      </div>
+      <div className="dashboard-grid" aria-hidden="true">
+        <Skeleton className="h-64 w-full rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+      </div>
+    </div>
   );
 }
 export function TextField({
@@ -160,8 +228,13 @@ export function DocumentAttachment({ document }: { document: Document }) {
     </Attachment>
   );
 }
-export async function uploadDocument(file: File, kind: Document["kind"]) {
-  const text = await extractText(file);
+export async function uploadDocument(
+  file: File,
+  kind: Document["kind"],
+  onProgress?: (message: string) => void,
+) {
+  const text = await extractText(file, onProgress);
+  onProgress?.("Uploading securely…");
   const signed = await request<{ id: string; path: string; token: string }>(
     "documents/upload",
     "POST",
@@ -187,11 +260,14 @@ export function UploadButton({
   kind = "resume",
   onUploaded,
   onSelected,
+  multiple = false,
   label = "Upload resume",
 }: {
   kind?: Document["kind"];
   onUploaded?: (document: Document) => Promise<void> | void;
-  onSelected?: (file: File) => void;
+  // Receives the chosen files instead of uploading them immediately.
+  onSelected?: (files: File[]) => void;
+  multiple?: boolean;
   label?: string;
 }) {
   const { busy, run, reload } = useWorkspace();
@@ -209,12 +285,13 @@ export function UploadButton({
         type="file"
         className="sr-only"
         accept=".pdf,.docx,.png,.jpg,.jpeg,.txt"
+        multiple={multiple}
         disabled={Boolean(busy)}
         onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) {
-            if (onSelected) onSelected(file);
-            else void upload(file);
+          const files = Array.from(e.target.files ?? []);
+          if (files.length) {
+            if (onSelected) onSelected(files);
+            else void upload(files[0]);
           }
           e.target.value = "";
         }}

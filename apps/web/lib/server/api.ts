@@ -13,6 +13,7 @@ import {
   safeFilename,
   validateFile,
   readDraftChatReply,
+  MAX_REFERRAL_FILES,
   type WorkspaceState,
 } from "@mailer/core";
 import {
@@ -46,6 +47,7 @@ import { assertPublicUrl, publicFetch, providerJson } from "./network";
 import { createMCPClient } from "@ai-sdk/mcp";
 
 import { draftChat, draftMessages } from "./draft-chat";
+import { reviewDraft } from "./review";
 
 const uuid = z.uuid();
 async function json(request: Request) {
@@ -565,15 +567,20 @@ export async function api(request: Request, path: string[]) {
         .object({
           input: z.string().trim().max(65000).default(""),
           document_id: uuid.optional(),
+          document_ids: z.array(uuid).max(MAX_REFERRAL_FILES).default([]),
         })
         .refine(
-          (v) => v.input.length > 0 || v.document_id,
+          (v) => v.input.length > 0 || v.document_id || v.document_ids.length,
           "Paste referral details or upload a file.",
         )
         .parse(await json(request));
-      return Response.json(
-        await intake(db, uid, input.input, input.document_id),
-      );
+      const documentIds = [
+        ...new Set([
+          ...(input.document_id ? [input.document_id] : []),
+          ...input.document_ids,
+        ]),
+      ].slice(0, MAX_REFERRAL_FILES);
+      return Response.json(await intake(db, uid, input.input, documentIds));
     }
     if (path[0] === "opportunities" && path[1]) {
       const id = uuid.parse(path[1]);
@@ -755,6 +762,12 @@ export async function api(request: Request, path: string[]) {
             "This draft changed or is no longer editable. Refresh the workspace.",
           );
         return Response.json(draft);
+      }
+      if (path[2] === "review" && method === "POST") {
+        const { version } = z
+          .object({ version: z.number().int().positive() })
+          .parse(await json(request));
+        return Response.json(await reviewDraft(db, uid, id, version));
       }
       if (path[2] === "send" && method === "POST")
         return Response.json(await sendDraft(db, uid, id, await json(request)));

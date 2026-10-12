@@ -86,7 +86,8 @@ export function DraftChat({
     return () => {
       cancelled = true;
     };
-  }, [draft.id, loadAttempt]);
+    // Version changes include auto-mode reviews, which add a thread message.
+  }, [draft.id, draft.version, loadAttempt]);
   async function send() {
     if (
       !content.trim() ||
