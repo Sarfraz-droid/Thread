@@ -13,6 +13,7 @@ import {
   safeFilename,
   validateFile,
   readDraftChatReply,
+  MAX_REFERRAL_FILES,
   type WorkspaceState,
 } from "@mailer/core";
 import {
@@ -46,6 +47,14 @@ import { assertPublicUrl, publicFetch, providerJson } from "./network";
 import { createMCPClient } from "@ai-sdk/mcp";
 
 import { draftChat, draftMessages } from "./draft-chat";
+import { reviewDraft } from "./review";
+import {
+  fillForm,
+  listFormFills,
+  listFormMemory,
+  readForm,
+  updateFormMemory,
+} from "./forms";
 
 const uuid = z.uuid();
 async function json(request: Request) {
@@ -565,15 +574,20 @@ export async function api(request: Request, path: string[]) {
         .object({
           input: z.string().trim().max(65000).default(""),
           document_id: uuid.optional(),
+          document_ids: z.array(uuid).max(MAX_REFERRAL_FILES).default([]),
         })
         .refine(
-          (v) => v.input.length > 0 || v.document_id,
+          (v) => v.input.length > 0 || v.document_id || v.document_ids.length,
           "Paste referral details or upload a file.",
         )
         .parse(await json(request));
-      return Response.json(
-        await intake(db, uid, input.input, input.document_id),
-      );
+      const documentIds = [
+        ...new Set([
+          ...(input.document_id ? [input.document_id] : []),
+          ...input.document_ids,
+        ]),
+      ].slice(0, MAX_REFERRAL_FILES);
+      return Response.json(await intake(db, uid, input.input, documentIds));
     }
     if (path[0] === "opportunities" && path[1]) {
       const id = uuid.parse(path[1]);
@@ -756,6 +770,12 @@ export async function api(request: Request, path: string[]) {
           );
         return Response.json(draft);
       }
+      if (path[2] === "review" && method === "POST") {
+        const { version } = z
+          .object({ version: z.number().int().positive() })
+          .parse(await json(request));
+        return Response.json(await reviewDraft(db, uid, id, version));
+      }
       if (path[2] === "send" && method === "POST")
         return Response.json(await sendDraft(db, uid, id, await json(request)));
       if (method === "DELETE") {
@@ -766,6 +786,31 @@ export async function api(request: Request, path: string[]) {
             .eq("id", id)
             .eq("user_id", uid)
             .eq("status", "draft"),
+        );
+        return Response.json({ ok: true });
+      }
+    }
+    if (route === "forms/read" && method === "POST")
+      return Response.json(await readForm(db, uid, await json(request)));
+    if (route === "forms/fill" && method === "POST")
+      return Response.json(await fillForm(db, uid, await json(request)));
+    if (route === "forms/history" && method === "GET")
+      return Response.json(await listFormFills(db, uid));
+    if (route === "form-memory" && method === "GET")
+      return Response.json(await listFormMemory(db, uid));
+    if (path[0] === "form-memory" && path[1] && path.length === 2) {
+      const id = uuid.parse(path[1]);
+      if (method === "PUT") {
+        await updateFormMemory(db, uid, id, await json(request));
+        return Response.json({ ok: true });
+      }
+      if (method === "DELETE") {
+        check(
+          await db
+            .from("form_answers")
+            .delete()
+            .eq("id", id)
+            .eq("user_id", uid),
         );
         return Response.json({ ok: true });
       }
@@ -909,6 +954,8 @@ export async function api(request: Request, path: string[]) {
         "drafts",
         "send_attempts",
         "mcp_configs",
+        "form_answers",
+        "form_fills",
       ] as const)
         data[table] = must(await db.from(table).select("*").eq("user_id", uid));
       return Response.json(data, {

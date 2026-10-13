@@ -68,6 +68,32 @@ isOneToOne: false
       referencedColumns: ["id","user_id"]
     }
                   ]
+                },"form_answers": {
+                  Row: {
+                    "answer": NonNullable<Json>,"created_at": string,"id": string,"question": string,"question_key": string,"times_used": number,"updated_at": string,"user_id": string
+                  }
+                  Insert: {
+                    "answer": NonNullable<Json>,"created_at"?: string,"id"?: string,"question": string,"question_key": string,"times_used"?: number,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "answer"?: NonNullable<Json>,"created_at"?: string,"id"?: string,"question"?: string,"question_key"?: string,"times_used"?: number,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"form_fills": {
+                  Row: {
+                    "answers": NonNullable<Json>,"created_at": string,"form_id": string,"form_url": string,"id": string,"mode": string,"status": string,"title": string,"user_id": string
+                  }
+                  Insert: {
+                    "answers"?: NonNullable<Json>,"created_at"?: string,"form_id": string,"form_url": string,"id"?: string,"mode": string,"status": string,"title"?: string,"user_id": string
+                  }
+                  Update: {
+                    "answers"?: NonNullable<Json>,"created_at"?: string,"form_id"?: string,"form_url"?: string,"id"?: string,"mode"?: string,"status"?: string,"title"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"integration_credentials": {
                   Row: {
                     "encrypted_payload": string,"id": string,"kind": string,"reference": string,"updated_at": string,"user_id": string

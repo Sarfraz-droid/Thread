@@ -6,6 +6,7 @@ import {
   Send,
   Settings,
   LayoutDashboard,
+  ClipboardList,
   LogOut,
   LockKeyhole,
   X,
@@ -21,6 +22,7 @@ import { DashboardView } from "./dashboard-view";
 import { ChatView } from "./chat-view";
 import { ProfileView } from "./profile-view";
 import { OpportunitiesView } from "./opportunities-view";
+import { FormsView } from "./forms-view";
 import { SettingsView, type ProviderStatus } from "./settings-view";
 import { Spinner } from "./common";
 import { ThemeToggle } from "./theme-toggle";
@@ -29,6 +31,7 @@ const nav = [
   { id: "chat", name: "Chat", icon: MessageSquare },
   { id: "profile", name: "Profile & memory", icon: UserRound },
   { id: "opportunities", name: "Opportunities", icon: Send },
+  { id: "forms", name: "Forms", icon: ClipboardList },
   { id: "settings", name: "Settings", icon: Settings },
 ];
 function Shell({
@@ -189,6 +192,7 @@ function Shell({
               initialCreate={createOpportunity}
             />
           )}{" "}
+          {view === "forms" && <FormsView />}
           {view === "settings" && (
             <SettingsView
               key={state.settings.model + state.settings.signature}

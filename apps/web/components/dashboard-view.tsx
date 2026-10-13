@@ -17,12 +17,13 @@ import {
   CardContent,
 } from "@mailer/ui/components/card";
 import { useWorkspace } from "./workspace-context";
+import { DashboardSkeleton } from "./common";
 export function DashboardView({
   navigate,
 }: {
   navigate: (view: string, opportunityId?: string) => void;
 }) {
-  const { state } = useWorkspace();
+  const { state, loaded } = useWorkspace();
   const drafts = state.drafts.filter(
     (d) => d.status === "draft" || d.status === "failed",
   );
@@ -48,6 +49,7 @@ export function DashboardView({
           view: "opportunities",
           label: "New opportunity",
         };
+  if (!loaded) return <DashboardSkeleton />;
   return (
     <div className="page-body dashboard-body">
       <div className="page-heading">

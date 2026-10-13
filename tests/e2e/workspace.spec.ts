@@ -32,6 +32,10 @@ function initialState(): WorkspaceState {
 async function mocks(page: Page, clarify = false) {
   const state = initialState();
   let sendCalls = 0;
+  let reviewCalls = 0;
+  let lastIntake: Record<string, unknown> | null = null;
+  const formFills: Record<string, unknown>[] = [];
+  const formMemory: Record<string, unknown>[] = [];
   const draftMessages: Message[] = [];
   let lastReference: unknown;
   await page.route("**/api/**", async (route) => {
@@ -128,6 +132,7 @@ async function mocks(page: Page, clarify = false) {
       return fulfill({ ok: true });
     }
     if (path === "opportunities" && method === "POST") {
+      lastIntake = body;
       const opportunity: Opportunity = {
         id: opportunityId,
         user_id: owner,
@@ -202,6 +207,92 @@ async function mocks(page: Page, clarify = false) {
       };
       state.drafts = [draft];
       return fulfill(draft);
+    }
+    if (path === "forms/read")
+      return fulfill({
+        url: "https://docs.google.com/forms/d/e/1FAIpQLSdExampleForm/viewform",
+        form: {
+          formId: "1FAIpQLSdExampleForm",
+          title: "Fellowship application",
+          description: "",
+          pageCount: 1,
+          fbzx: "",
+          hasFileUpload: false,
+          requiresSignIn: false,
+          skipped: [],
+          questions: [
+            {
+              entryId: "1001",
+              title: "Full name",
+              description: "",
+              kind: "short",
+              required: true,
+              options: [],
+              page: 0,
+            },
+            {
+              entryId: "1003",
+              title: "Graduation year",
+              description: "",
+              kind: "choice",
+              required: true,
+              options: ["2024", "2025"],
+              page: 0,
+            },
+            {
+              entryId: "1002",
+              title: "Why do you want to join?",
+              description: "",
+              kind: "paragraph",
+              required: false,
+              options: [],
+              page: 0,
+            },
+          ],
+        },
+        answers: {
+          "1001": { value: "Alex Example", source: "memory" },
+          "1003": { value: "2025", source: "suggested" },
+          "1002": {
+            value: null,
+            source: "needs_you",
+            note: "Only you can answer this.",
+          },
+        },
+      });
+    if (path === "forms/fill") {
+      formFills.push(body ?? {});
+      formMemory.splice(0, formMemory.length, {
+        id: "77777777-7777-4777-8777-777777777777",
+        question_key: "full name",
+        question: "Full name",
+        answer: "Alex Example",
+        times_used: 2,
+        updated_at: now,
+      });
+      return fulfill({
+        status: body?.mode === "submit" ? "submitted" : "prepared",
+        prefill_url:
+          "https://docs.google.com/forms/d/e/1FAIpQLSdExampleForm/viewform?usp=pp_url",
+        remembered: 3,
+      });
+    }
+    if (path === "form-memory") return fulfill(formMemory);
+    if (path === "forms/history") return fulfill([]);
+    if (path === `drafts/${draftId}/review`) {
+      reviewCalls++;
+      state.drafts[0] = {
+        ...state.drafts[0],
+        subject: "Referral for the Backend Engineer role (ENG-42)",
+        version: state.drafts[0].version + 1,
+      };
+      return fulfill({
+        draft: state.drafts[0],
+        approved: true,
+        revised: true,
+        summary: "Checked the facts and made the subject specific.",
+        issues: [{ severity: "minor", note: "The subject was generic." }],
+      });
     }
     if (path === `drafts/${draftId}/chat`) {
       if (method === "GET") return fulfill(draftMessages);
@@ -279,6 +370,9 @@ async function mocks(page: Page, clarify = false) {
   return {
     state,
     sendCalls: () => sendCalls,
+    reviewCalls: () => reviewCalls,
+    lastIntake: () => lastIntake,
+    formFills,
     lastReference: () => lastReference,
   };
 }
@@ -711,7 +805,7 @@ test("pasted referral images show a preview and can be removed", async ({
       }),
     );
   });
-  const image = page.getByRole("img", { name: "Referral image preview" });
+  const image = page.getByRole("img", { name: "Preview of screenshot.png" });
   await expect(image).toBeVisible();
   await expect
     .poll(() =>
@@ -720,14 +814,130 @@ test("pasted referral images show a preview and can be removed", async ({
     .toBe(1);
   await expect(input).toHaveValue("Keep this referral text");
   await expect(page.getByText("screenshot.png", { exact: true })).toBeVisible();
-  await page
-    .getByRole("button", { name: "Remove referral attachment" })
-    .click();
+  await page.getByRole("button", { name: "Remove screenshot.png" }).click();
   await expect(image).toHaveCount(0);
   await input.fill("");
   await expect(
     page.getByRole("button", { name: "Structure opportunity" }),
   ).toBeDisabled();
+});
+
+test("several referral screenshots can be pasted together and removed individually", async ({
+  page,
+}) => {
+  await mocks(page);
+  await page.goto("/preview");
+  await page
+    .getByRole("button", { name: "Opportunities", exact: true })
+    .click();
+  const input = page.getByLabel("Referral details");
+  await input.evaluate((element) => {
+    const bytes = Uint8Array.from(
+      atob(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aP1sAAAAASUVORK5CYII=",
+      ),
+      (character) => character.charCodeAt(0),
+    );
+    const clipboard = new DataTransfer();
+    for (const name of ["first.png", "second.png", "third.png"])
+      clipboard.items.add(new File([bytes], name, { type: "image/png" }));
+    element.dispatchEvent(
+      new ClipboardEvent("paste", {
+        clipboardData: clipboard,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  });
+  const attachments = page.getByRole("list", {
+    name: "Referral attachments (3 of 8)",
+  });
+  await expect(attachments).toBeVisible();
+  await expect(attachments.getByRole("img")).toHaveCount(3);
+  await page.getByRole("button", { name: "Remove second.png" }).click();
+  await expect(
+    page.getByRole("list", { name: "Referral attachments (2 of 8)" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: "Preview of second.png" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("img", { name: "Preview of first.png" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: "Preview of third.png" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Structure opportunity" }),
+  ).toBeEnabled();
+});
+
+test("auto mode researches, drafts, reviews, and sends without manual steps", async ({
+  page,
+}) => {
+  const mock = await mocks(page);
+  await page.goto("/preview");
+  await page
+    .getByRole("button", { name: "Opportunities", exact: true })
+    .click();
+  await page
+    .getByLabel("Referral details")
+    .fill("Sam (sam@example.test) can refer me for Backend Engineer ENG-42.");
+  await page.getByRole("checkbox", { name: /Auto mode/ }).click();
+  await page
+    .getByRole("button", { name: "Structure and run auto mode" })
+    .click();
+  await expect.poll(() => mock.sendCalls()).toBe(1);
+  expect(mock.reviewCalls()).toBe(1);
+  expect(mock.state.opportunities[0].research).toContain("careers");
+  expect(mock.lastIntake()?.document_ids).toEqual([]);
+  await showReferralPanel(page, "Referral");
+  await expect(page.getByText("Reviewed and sent.")).toBeVisible();
+  await expect(page.getByText("Sent to sam@example.test")).toBeVisible();
+  await expect(page.getByText("Fixed: The subject was generic.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sent email" })).toBeVisible();
+});
+
+test("forms are filled from memory, reviewed, submitted, and remembered", async ({
+  page,
+}) => {
+  const mock = await mocks(page);
+  await page.goto("/preview");
+  await page.getByRole("button", { name: "Forms", exact: true }).click();
+  await page.getByLabel("Google Form link").fill("https://forms.gle/example");
+  await page.getByRole("button", { name: "Read form" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Fellowship application" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Full name")).toHaveValue("Alex Example");
+  await expect(page.getByText("From memory")).toBeVisible();
+  await expect(page.getByText("Only you can answer this.")).toBeVisible();
+  await expect(page.getByRole("radio", { name: "2025" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  await page.getByRole("radio", { name: "2024" }).click();
+  await page
+    .getByLabel("Why do you want to join?")
+    .fill("I want to build developer tools.");
+  await page.getByRole("button", { name: "Submit directly" }).click();
+  await page.getByRole("button", { name: "Submit form" }).click();
+  await expect(page.getByText("Form submitted")).toBeVisible();
+  expect(mock.formFills[0]).toMatchObject({
+    mode: "submit",
+    remember: true,
+    answers: {
+      "1001": "Alex Example",
+      "1003": "2024",
+      "1002": "I want to build developer tools.",
+    },
+  });
+  await expect(
+    page.getByLabel("Full name", { exact: true }).last(),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Forget answer for Full name" }),
+  ).toBeVisible();
 });
 
 test("opportunities board groups cards by workflow status and opens review", async ({

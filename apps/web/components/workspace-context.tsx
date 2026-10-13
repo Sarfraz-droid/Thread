@@ -40,6 +40,8 @@ export async function request<T>(
 type Context = {
   state: WorkspaceState;
   busy: string;
+  // False until the first workspace load settles; views show skeletons until then.
+  loaded: boolean;
   error: string;
   setError: (message: string) => void;
   reload: () => Promise<void>;
@@ -61,6 +63,7 @@ export function WorkspaceProvider({
 }) {
   const [state, setState] = useState(emptyState),
     [busy, setBusy] = useState(""),
+    [loaded, setLoaded] = useState(false),
     [error, setError] = useState(initialError);
   const reload = useCallback(async () => {
     try {
@@ -86,14 +89,15 @@ export function WorkspaceProvider({
   }, []);
   useEffect(() => {
     if (authenticated || preview) {
-      void run("Loading workspace", reload);
-    }
+      void run("Loading workspace", reload).finally(() => setLoaded(true));
+    } else setLoaded(true);
   }, [authenticated, preview, reload, run]);
   return (
     <WorkspaceContext.Provider
       value={{
         state,
         busy,
+        loaded,
         error,
         setError,
         reload,

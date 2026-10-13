@@ -204,6 +204,7 @@ export type McpConfig = {
 
 export const MAX_FILE_SIZE = 10 * 1024 * 1024;
 export const MAX_ATTACHMENT_SIZE = 15 * 1024 * 1024;
+export const MAX_REFERRAL_FILES = 8;
 export const allowedMimeTypes = [
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -255,6 +256,7 @@ export {
   RejectedDelivery,
   type DeliveryOutcome,
 } from "./delivery";
+export * from "./forms";
 
 export const profileUpdateSchema = z.object({
   field: profileSchema.keyof(),
@@ -335,3 +337,39 @@ export const referralReadinessSchema = z.object({
 export type ReferralAnswer = z.infer<typeof referralAnswerSchema>;
 export type ReferralDraftResult =
   Draft | { kind: "clarification"; questions: string[] };
+
+// Auto mode reviews a draft the way the owner would before sending it.
+export const draftReviewSchema = z.object({
+  approved: z.boolean(),
+  summary: z.string().trim().min(1).max(1500),
+  issues: z
+    .array(
+      z.object({
+        severity: z.enum(["blocking", "minor"]),
+        note: z.string().trim().min(1).max(600),
+      }),
+    )
+    .max(10),
+  revision: z
+    .object({
+      subject: z.string().min(1).max(300),
+      body: z.string().min(1).max(20000),
+    })
+    .nullable(),
+});
+export type DraftReview = z.infer<typeof draftReviewSchema>;
+export type DraftReviewResult = {
+  draft: Draft;
+  approved: boolean;
+  revised: boolean;
+  summary: string;
+  issues: DraftReview["issues"];
+};
+const placeholderPattern =
+  /\[[^\]\n]{1,60}\]|\{\{[^}\n]{0,60}\}\}|<[A-Z][A-Za-z ]{1,40}>|\b(?:TODO|TBD|XXX|INSERT)\b/g;
+// Template slots an automated send must never deliver.
+export function findPlaceholders(...texts: string[]) {
+  return [
+    ...new Set(texts.flatMap((text) => text.match(placeholderPattern) ?? [])),
+  ];
+}
