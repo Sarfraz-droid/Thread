@@ -1223,8 +1223,8 @@ export function OpportunitiesView({
               <p>From a promising lead to a personal conversation.</p>
             </div>
             {state.opportunities.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex gap-1" role="group" aria-label="View">
+              <div className="opportunity-toolbar">
+                <div className="segmented" role="group" aria-label="View">
                   <Button
                     variant={view === "board" ? "secondary" : "ghost"}
                     aria-pressed={view === "board"}
@@ -1242,7 +1242,7 @@ export function OpportunitiesView({
                 </div>
                 {view === "board" && (
                   <div
-                    className="flex gap-1"
+                    className="segmented"
                     role="group"
                     aria-label="Sent filter"
                   >
@@ -1264,6 +1264,7 @@ export function OpportunitiesView({
                 )}
                 <Button
                   variant="outline"
+                  className="opportunity-toolbar-new"
                   onClick={() => {
                     setShowIntake(true);
                     setDialogOpen(false);
@@ -1314,13 +1315,19 @@ export function OpportunitiesView({
                               {o.company || "New opportunity"}
                             </DialogTrigger>
                           </td>
-                          <td>{o.role || "Details needed"}</td>
-                          <td>{o.recipient_email || "—"}</td>
-                          <td>
+                          <td data-label="Role">
+                            {o.role || "Details needed"}
+                          </td>
+                          <td data-label="Recipient">
+                            {o.recipient_email || "—"}
+                          </td>
+                          <td data-label="Status">
                             <Badge variant="secondary">{o.status}</Badge>
                           </td>
-                          <td>{o.outcome}</td>
-                          <td>{new Date(o.updated_at).toLocaleString()}</td>
+                          <td data-label="Outcome">{o.outcome}</td>
+                          <td data-label="Updated">
+                            {new Date(o.updated_at).toLocaleString()}
+                          </td>
                         </tr>
                       ))}
                   </tbody>

@@ -2364,6 +2364,129 @@ code {
   border-bottom: 0;
 }
 
+/* Opportunities toolbar: view switch, sent filter and create action. */
+.opportunity-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.segmented {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 3px);
+  background: var(--muted);
+}
+.segmented > button {
+  height: 30px;
+}
+.segmented > button[aria-pressed="true"] {
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+}
+@media (max-width: 640px) {
+  .opportunity-toolbar {
+    width: 100%;
+  }
+  .segmented {
+    flex: 1;
+  }
+  .segmented > button {
+    flex: 1;
+    padding-inline: 8px;
+  }
+  .opportunity-toolbar-new {
+    width: 100%;
+  }
+  .kanban-column {
+    min-height: 0;
+    padding: 12px;
+  }
+  .kanban-heading {
+    margin-bottom: 10px;
+  }
+  .kanban-empty {
+    margin: 6px 0;
+  }
+  .kanban-card {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    column-gap: 12px;
+    row-gap: 2px;
+    align-items: center;
+    padding: 12px;
+  }
+  .kanban-card-top {
+    display: contents;
+  }
+  .kanban-card .company-monogram {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+  .kanban-card-top > svg {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+  }
+  .kanban-card strong,
+  .kanban-role,
+  .kanban-card [data-slot="badge"] {
+    grid-column: 2;
+  }
+  .kanban-card [data-slot="badge"] {
+    justify-self: start;
+    margin-top: 4px;
+  }
+  /* The table becomes a stack of labelled rows on phones. */
+  .opportunity-table-wrap {
+    overflow: visible;
+  }
+  .opportunity-table thead {
+    display: none;
+  }
+  .opportunity-table,
+  .opportunity-table tbody,
+  .opportunity-table tr,
+  .opportunity-table td {
+    display: block;
+    width: 100%;
+  }
+  .opportunity-table tr {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .opportunity-table tr:last-child {
+    border-bottom: 0;
+  }
+  .opportunity-table td {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 3px 0;
+    border-bottom: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: right;
+  }
+  .opportunity-table td:first-child {
+    padding-bottom: 6px;
+    text-align: left;
+  }
+  .opportunity-table td:first-child > button {
+    height: auto;
+    padding: 0;
+    white-space: normal;
+    text-align: left;
+    font-weight: 600;
+  }
+  .opportunity-table td[data-label]::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    color: var(--muted-foreground);
+  }
+}
+
 .kanban-column[data-drop="true"] {
   outline: 2px dashed var(--ring);
   outline-offset: -2px;
@@ -2897,9 +3020,6 @@ code {
 }
 
 /* Intake: several files or screenshots per opportunity. */
-[data-slot="dialog-content"].intake-dialog {
-  position: relative;
-}
 .intake-dialog .intake-steps {
   margin: 20px 0;
   padding: 16px 0;
