@@ -48,6 +48,13 @@ import { createMCPClient } from "@ai-sdk/mcp";
 
 import { draftChat, draftMessages } from "./draft-chat";
 import { reviewDraft } from "./review";
+import {
+  fillForm,
+  listFormFills,
+  listFormMemory,
+  readForm,
+  updateFormMemory,
+} from "./forms";
 
 const uuid = z.uuid();
 async function json(request: Request) {
@@ -783,6 +790,31 @@ export async function api(request: Request, path: string[]) {
         return Response.json({ ok: true });
       }
     }
+    if (route === "forms/read" && method === "POST")
+      return Response.json(await readForm(db, uid, await json(request)));
+    if (route === "forms/fill" && method === "POST")
+      return Response.json(await fillForm(db, uid, await json(request)));
+    if (route === "forms/history" && method === "GET")
+      return Response.json(await listFormFills(db, uid));
+    if (route === "form-memory" && method === "GET")
+      return Response.json(await listFormMemory(db, uid));
+    if (path[0] === "form-memory" && path[1] && path.length === 2) {
+      const id = uuid.parse(path[1]);
+      if (method === "PUT") {
+        await updateFormMemory(db, uid, id, await json(request));
+        return Response.json({ ok: true });
+      }
+      if (method === "DELETE") {
+        check(
+          await db
+            .from("form_answers")
+            .delete()
+            .eq("id", id)
+            .eq("user_id", uid),
+        );
+        return Response.json({ ok: true });
+      }
+    }
     if (route === "gmail/connect" && method === "POST")
       return Response.json(await gmailConnect());
     if (route === "gmail/callback" && method === "GET") {
@@ -922,6 +954,8 @@ export async function api(request: Request, path: string[]) {
         "drafts",
         "send_attempts",
         "mcp_configs",
+        "form_answers",
+        "form_fills",
       ] as const)
         data[table] = must(await db.from(table).select("*").eq("user_id", uid));
       return Response.json(data, {

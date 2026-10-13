@@ -1529,7 +1529,7 @@ code {
   .sidebar nav {
     margin-top: 16px;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     overflow: visible;
     gap: 2px;
   }
@@ -3185,5 +3185,227 @@ code {
 @media (prefers-reduced-motion: reduce) {
   .intake-progress-bar span {
     transition: none;
+  }
+}
+
+/* Google Form filler. */
+.form-reader {
+  max-width: 880px;
+  margin-bottom: 28px;
+}
+.form-reader-row {
+  display: flex;
+  gap: 10px;
+}
+.form-reader-row [data-slot="input"] {
+  flex: 1;
+  min-width: 0;
+}
+.form-reader-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+.form-outcome {
+  max-width: 880px;
+  margin-bottom: 24px;
+}
+.form-outcome a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  color: var(--primary);
+  text-decoration: underline;
+}
+.form-fill {
+  max-width: 880px;
+  margin-bottom: 36px;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+}
+.form-fill > .section-heading {
+  margin-bottom: 20px;
+}
+.form-fill-description {
+  white-space: pre-wrap;
+  max-width: 70ch;
+}
+.form-fill-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.form-fill > [data-slot="alert"] {
+  margin-bottom: 20px;
+}
+.form-questions {
+  gap: 0;
+}
+.form-question {
+  padding: 18px 0;
+  border-top: 1px solid var(--border);
+}
+.form-question-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.form-question-heading [data-slot="field-label"] {
+  line-height: 1.5;
+}
+.form-question-heading [data-slot="badge"] {
+  flex-shrink: 0;
+}
+.form-question[data-source="needs_you"]
+  .form-question-heading
+  [data-slot="badge"] {
+  color: var(--destructive);
+  border-color: color-mix(in oklch, var(--destructive) 40%, var(--border));
+}
+.form-required {
+  margin-left: 3px;
+  color: var(--destructive);
+}
+.form-question-note {
+  font-style: italic;
+}
+.form-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.form-options:has([data-slot="field"]) {
+  flex-direction: column;
+  gap: 10px;
+}
+.form-options button {
+  height: auto;
+  min-height: 32px;
+  white-space: normal;
+  text-align: left;
+}
+.form-select {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--input);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 14px;
+}
+.form-fill-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.form-fill-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.forms-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr);
+  gap: 24px;
+  align-items: start;
+  max-width: 1200px;
+}
+.form-memory,
+.form-history {
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.form-memory > .section-heading {
+  margin-bottom: 16px;
+}
+.form-memory-list {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.form-memory-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+}
+.form-memory-row label {
+  font-size: 13px;
+  font-weight: 500;
+}
+.form-memory-row > div {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.form-memory-row small {
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.form-history h2 {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+.form-history ul {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.form-history li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
+  font-size: 13px;
+}
+.form-history a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--primary);
+}
+.form-history small {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+@media (max-width: 950px) {
+  .forms-columns {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 640px) {
+  .form-reader-row {
+    flex-direction: column;
+  }
+  .form-fill,
+  .form-memory,
+  .form-history {
+    padding: 18px;
+  }
+  .form-fill-actions {
+    flex-direction: column-reverse;
+  }
+  .form-fill-actions button {
+    width: 100%;
   }
 }

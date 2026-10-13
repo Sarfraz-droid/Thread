@@ -34,6 +34,8 @@ async function mocks(page: Page, clarify = false) {
   let sendCalls = 0;
   let reviewCalls = 0;
   let lastIntake: Record<string, unknown> | null = null;
+  const formFills: Record<string, unknown>[] = [];
+  const formMemory: Record<string, unknown>[] = [];
   const draftMessages: Message[] = [];
   let lastReference: unknown;
   await page.route("**/api/**", async (route) => {
@@ -206,6 +208,77 @@ async function mocks(page: Page, clarify = false) {
       state.drafts = [draft];
       return fulfill(draft);
     }
+    if (path === "forms/read")
+      return fulfill({
+        url: "https://docs.google.com/forms/d/e/1FAIpQLSdExampleForm/viewform",
+        form: {
+          formId: "1FAIpQLSdExampleForm",
+          title: "Fellowship application",
+          description: "",
+          pageCount: 1,
+          fbzx: "",
+          hasFileUpload: false,
+          requiresSignIn: false,
+          skipped: [],
+          questions: [
+            {
+              entryId: "1001",
+              title: "Full name",
+              description: "",
+              kind: "short",
+              required: true,
+              options: [],
+              page: 0,
+            },
+            {
+              entryId: "1003",
+              title: "Graduation year",
+              description: "",
+              kind: "choice",
+              required: true,
+              options: ["2024", "2025"],
+              page: 0,
+            },
+            {
+              entryId: "1002",
+              title: "Why do you want to join?",
+              description: "",
+              kind: "paragraph",
+              required: false,
+              options: [],
+              page: 0,
+            },
+          ],
+        },
+        answers: {
+          "1001": { value: "Alex Example", source: "memory" },
+          "1003": { value: "2025", source: "suggested" },
+          "1002": {
+            value: null,
+            source: "needs_you",
+            note: "Only you can answer this.",
+          },
+        },
+      });
+    if (path === "forms/fill") {
+      formFills.push(body ?? {});
+      formMemory.splice(0, formMemory.length, {
+        id: "77777777-7777-4777-8777-777777777777",
+        question_key: "full name",
+        question: "Full name",
+        answer: "Alex Example",
+        times_used: 2,
+        updated_at: now,
+      });
+      return fulfill({
+        status: body?.mode === "submit" ? "submitted" : "prepared",
+        prefill_url:
+          "https://docs.google.com/forms/d/e/1FAIpQLSdExampleForm/viewform?usp=pp_url",
+        remembered: 3,
+      });
+    }
+    if (path === "form-memory") return fulfill(formMemory);
+    if (path === "forms/history") return fulfill([]);
     if (path === `drafts/${draftId}/review`) {
       reviewCalls++;
       state.drafts[0] = {
@@ -299,6 +372,7 @@ async function mocks(page: Page, clarify = false) {
     sendCalls: () => sendCalls,
     reviewCalls: () => reviewCalls,
     lastIntake: () => lastIntake,
+    formFills,
     lastReference: () => lastReference,
   };
 }
@@ -822,6 +896,48 @@ test("auto mode researches, drafts, reviews, and sends without manual steps", as
   await expect(page.getByText("Sent to sam@example.test")).toBeVisible();
   await expect(page.getByText("Fixed: The subject was generic.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Sent email" })).toBeVisible();
+});
+
+test("forms are filled from memory, reviewed, submitted, and remembered", async ({
+  page,
+}) => {
+  const mock = await mocks(page);
+  await page.goto("/preview");
+  await page.getByRole("button", { name: "Forms", exact: true }).click();
+  await page.getByLabel("Google Form link").fill("https://forms.gle/example");
+  await page.getByRole("button", { name: "Read form" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Fellowship application" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Full name")).toHaveValue("Alex Example");
+  await expect(page.getByText("From memory")).toBeVisible();
+  await expect(page.getByText("Only you can answer this.")).toBeVisible();
+  await expect(page.getByRole("radio", { name: "2025" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  await page.getByRole("radio", { name: "2024" }).click();
+  await page
+    .getByLabel("Why do you want to join?")
+    .fill("I want to build developer tools.");
+  await page.getByRole("button", { name: "Submit directly" }).click();
+  await page.getByRole("button", { name: "Submit form" }).click();
+  await expect(page.getByText("Form submitted")).toBeVisible();
+  expect(mock.formFills[0]).toMatchObject({
+    mode: "submit",
+    remember: true,
+    answers: {
+      "1001": "Alex Example",
+      "1003": "2024",
+      "1002": "I want to build developer tools.",
+    },
+  });
+  await expect(
+    page.getByLabel("Full name", { exact: true }).last(),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Forget answer for Full name" }),
+  ).toBeVisible();
 });
 
 test("opportunities board groups cards by workflow status and opens review", async ({
